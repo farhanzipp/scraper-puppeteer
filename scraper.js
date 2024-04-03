@@ -1,6 +1,6 @@
 const puppeteer = require('puppeteer');
 
-const query = "Toko pertanian di sidoarjo";
+const query = "Toko pertanian di sawentar kanigoro";
 const Url = `https://www.google.com/maps/search/${encodeURIComponent(query)}`;
 
 async function autoScroll(page) {
@@ -17,7 +17,7 @@ async function autoScroll(page) {
                     clearInterval(timer);
                     resolve();
                 }
-            }, 200);
+            }, 100);
         });
     });
 }
@@ -28,22 +28,51 @@ async function parsePlaces(page) {
     if (elements && elements.length) {
         for (const el of elements) {
             const data = await page.evaluate(element => {
-                const nameElement = element.querySelector('.qBF1Pd');
-                const noElement = element.querySelector('.UsdlK');
-                const linkElement = element.querySelector('.hfpxzc');
+                const kontakEl = element.querySelector('.UsdlK');
                 return {
-                    name: nameElement ? nameElement.textContent.trim() : '',
-                    no: noElement ? noElement.textContent.trim() : '',
-                    link: linkElement ? linkElement.getAttribute('href') : ''
+                    // name: element.querySelector('.qBF1Pd') ? element.querySelector('.qBF1Pd').textContent.trim() : '',
+                    kontak: kontakEl ? kontakEl.textContent.trim() : '',
+                    link: element.querySelector('.hfpxzc') ? element.querySelector('.hfpxzc').getAttribute('href') : '',
                 }
-            },el);
+            }, el);
             places.push({ data });
         }
     }
     return places;
 }
 
-async
+async function detailing(arr) {
+    const browser = await puppeteer.launch({ headless: false });
+    let results = [];
+
+    for (const val of arr) {
+        const page = await browser.newPage();
+        await page.goto(val.data.link);
+        const dataKontak = val.data.kontak;
+
+        const data = await page.evaluate(() => {
+            const items = Array.from(document.querySelectorAll('.Io6YTe'));
+            const nama = document.querySelector('.DUwDvf') ? document.querySelector('.DUwDvf').textContent.trim() : null;
+            const alamat = items[0] ? items[0].textContent.trim() : null;
+            const jenis = document.querySelector('.DkEaL') ? document.querySelector('.DkEaL').textContent.trim() : null;
+            const rating = document.querySelector('.F7nice') ? document.querySelector('.F7nice').textContent.trim() : null;
+
+            return { nama, alamat, jenis, rating };
+        })
+
+        results.push(data);
+        results = results.map(result => {
+            return {
+                ...result,
+                kontak: dataKontak
+            };
+        });
+
+        await page.close();
+    }
+    await browser.close();
+    return results;
+}
 
 (async () => {
     const browser = await puppeteer.launch({ headless: false });
@@ -52,6 +81,11 @@ async
 
     await autoScroll(page);
     const places = await parsePlaces(page);
-    console.log(places);
+
+    const final = await detailing(places);
+    console.log(final);
+
     await browser.close();
 })();
+
+
