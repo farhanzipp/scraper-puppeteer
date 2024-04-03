@@ -1,4 +1,6 @@
 const puppeteer = require('puppeteer');
+const XLSX = require('xlsx');
+const fs = require('fs');
 
 const query = "Toko pertanian di sawentar kanigoro";
 const Url = `https://www.google.com/maps/search/${encodeURIComponent(query)}`;
@@ -41,6 +43,7 @@ async function parsePlaces(page) {
     return places;
 }
 
+
 async function detailing(arr) {
     const browser = await puppeteer.launch({ headless: false });
     let results = [];
@@ -48,7 +51,6 @@ async function detailing(arr) {
     for (const val of arr) {
         const page = await browser.newPage();
         await page.goto(val.data.link);
-        const dataKontak = val.data.kontak;
 
         const data = await page.evaluate(() => {
             const items = Array.from(document.querySelectorAll('.Io6YTe'));
@@ -60,18 +62,21 @@ async function detailing(arr) {
             return { nama, alamat, jenis, rating };
         })
 
-        results.push(data);
-        results = results.map(result => {
-            return {
-                ...result,
-                kontak: dataKontak
-            };
-        });
+        const dataKontak = val.data.kontak; 
+
+        results.push({ ...data, kontak: dataKontak });
 
         await page.close();
     }
     await browser.close();
     return results;
+}
+
+function writeToXlsx(data, outputPath) {
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(data);
+    XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+    XLSX.writeFile(wb, outputPath);
 }
 
 (async () => {
@@ -86,6 +91,7 @@ async function detailing(arr) {
     console.log(final);
 
     await browser.close();
+    writeToXlsx(final, 'output.xlsx');
 })();
 
 
